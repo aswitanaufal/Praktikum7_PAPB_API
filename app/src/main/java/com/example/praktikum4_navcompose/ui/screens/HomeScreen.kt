@@ -3,6 +3,7 @@ package com.example.praktikum4_navcompose.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,16 +21,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.praktikum4_navcompose.Routes
 import com.example.praktikum4_navcompose.data.model.Student
 import com.example.praktikum4_navcompose.ui.home.HomeUiState
 
 @Composable
 fun HomeScreen(
-    uiState: HomeUiState,
-    onSearchQueryChange: (String) -> Unit,
-    onSearch: ()-> Unit,
     onStudentClick: (Int) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onSearch: () -> Unit,
+    onRefresh: () -> Unit,
+    uiState: HomeUiState,
+    onSearchQueryChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -38,6 +41,33 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Home", style = MaterialTheme.typography.headlineMedium)
+
+        TextField(
+            value = uiState.searchQuery,
+            onValueChange = onSearchQueryChange,
+            label = { Text("Masukkan nama mahasiswa") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onSearch,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Cari")
+            }
+
+            Button(
+                onClick = onRefresh,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Refresh")
+            }
+        }
+
         when {
             uiState.isLoading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -47,7 +77,9 @@ fun HomeScreen(
 
             uiState.errorMessage != null -> {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(uiState.errorMessage)
@@ -63,25 +95,6 @@ fun HomeScreen(
                         }
                     }
                 }
-            }
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            TextField(
-                value = uiState.searchQuery,
-                onValueChange = onSearchQueryChange,
-                label = { Text("Masukkan nama mahasiswa") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedButton(
-                onClick = onSearch,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cari Mahasiswa")
             }
         }
     }

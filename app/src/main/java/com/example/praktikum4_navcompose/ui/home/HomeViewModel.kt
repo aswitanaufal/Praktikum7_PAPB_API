@@ -1,60 +1,87 @@
 package com.example.praktikum4_navcompose.ui.home
 
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.praktikum4_navcompose.data.repository.StudentRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
-class HomeViewModel(
-    private val repository: StudentRepository
-) : ViewModel() {
-    var uiState by mutableStateOf(HomeUiState())
-        private set
-    init { loadStudents() }
+class HomeViewModel(private val repository: StudentRepository) : ViewModel() {
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private var hasUserInteracted = false
+
+    init {
+       observeSearch()
+    }
+
     fun loadStudents() {
-        uiState = uiState.copy(isLoading = true, errorMessage = null)
-        repository.getStudents { result ->
-            result
-                .onSuccess { data ->
-                    uiState = HomeUiState(students = data)
-                }
-                .onFailure { error ->
-                    uiState = HomeUiState(
-                        errorMessage = error.message ?: "Gagal mengambil data"
-                    )
-                }
-        }
+       refresh()
     }
 
-    fun onSearchQueryChange(newQuery: String){
-        uiState = uiState.copy(searchQuery = newQuery)
+    fun refresh() {
+       viewModelScope.launch {
+           val query = _searchQuery.value.trim()
+           _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+
+           try {
+               val data = if (query.isEmpty()) {
+                   repository.getStudents()
+               } else {
+                   repository.searchStudents(query)
+               }
+
+               _uiState.value = _uiState.value.copy(
+                   students = data,
+                   searchQuery = query,
+                   isLoading = false,
+                   errorMessage = null
+               )
+           } catch (e: CancellationException) {
+               throw e
+           } catch (e: Exception) {
+               _uiState.value = _uiState.value.copy(
+                   isLoading = false,
+                   errorMessage = e.message ?: "Gagal mengambil data"
+               )
+           }
+       }
     }
 
-    fun searchStudents() {
-        val query = uiState.searchQuery.trim()
-        if (query.isEmpty()) {
-            loadStudents()
-            return
-        }
+    fun onSearchQueryChange(query: String) {
+       hasUserInteracted = true
+       _searchQuery.value = query
+       _uiState.value = _uiState.value.copy(searchQuery = query)
+    }
 
-        uiState = uiState.copy(isLoading = true, errorMessage = null)
-        repository.searchStudents(query) { result ->
-            result
-                .onSuccess { data ->
-                    uiState = uiState.copy(
-                        students = data,
-                        isLoading = false
-                    )
-                }
-                .onFailure { error ->
-                    uiState = uiState.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "Gagal mencari data"
-                    )
-                }
-        }
+    @OptIn(FlowPreview::class)
+    private fun observeSearch() {
+       viewModelScope.launch {
+           searchQuery
+               .debounce(300)
+               .distinctUntilChanged()
+               .collectLatest { query ->
+                   if (!hasUserInteracted) return@collectLatest
+                   refresh()
+               }
+       }
     }
 
     companion object {

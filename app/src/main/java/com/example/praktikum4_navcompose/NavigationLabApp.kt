@@ -2,7 +2,10 @@ package com.example.praktikum4_navcompose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -38,13 +41,18 @@ fun NavigationLabApp(){
         startDestination = Routes.HOME
     ){
         composable(Routes.HOME){
-            val homeViewModel = remember { HomeViewModel(repository) }
+            val homeViewModel: HomeViewModel = viewModel(
+                factory = HomeViewModel.factory(repository)
+            )
+            val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+
             HomeScreen(
-                uiState = homeViewModel.uiState,
+                uiState = homeUiState,
                 onSearchQueryChange = homeViewModel::onSearchQueryChange,
-                onSearch = homeViewModel::searchStudents,
                 onStudentClick = { id -> navController.navigate(Routes.detail(id)) },
-                onRetry = homeViewModel::loadStudents
+                onRetry = homeViewModel::loadStudents,
+                onSearch = homeViewModel::refresh,
+                onRefresh = homeViewModel::refresh
             )
         }
         composable(Routes.PROFILE){
